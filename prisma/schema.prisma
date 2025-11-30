@@ -1,14 +1,453 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
-}
+// prisma/schema.prisma
 
 datasource db {
   provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PlanBillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
+enum FileUsage {
+  RAG
+  AVATAR
+  EXPORT
+  OTHER
+}
+
+enum DocumentSourceType {
+  UPLOAD
+  URL
+  MANUAL
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  INCOMPLETE
+}
+
+enum ReferralStatus {
+  PENDING
+  EARNED
+  PAID
+}
+
+enum ModelType {
+  CHAT
+  VISION
+  AUDIO
+  EMBEDDING
+}
+
+enum AgentVisibility {
+  PRIVATE
+  PUBLIC
+  UNLISTED
+}
+
+model User {
+  id            String    @id @default(uuid()) // removed @db.Uuid
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  name          String?
+  image         String?
+  role          UserRole  @default(USER)
+  locale        String    @default("fa-IR")
+  timezone      String    @default("Asia/Tehran")
+
+  accounts        Account[]
+  sessions        Session[]
+  devices         Device[]
+  subscriptions   Subscription[]
+  threads         ChatThread[]
+  agents          Agent[]
+  knowledgeBases  KnowledgeBase[]
+  files           File[]
+  tickets         Ticket[]       @relation("UserTickets")
+  assignedTickets Ticket[]       @relation("AdminTickets")
+  adminLogs       AdminLog[]
+  usageLogs       UsageLog[]
+  payments        Payment[]
+  invoices        Invoice[]
+  referralsGiven   Referral[]    @relation("Referrer")
+  referralsReceived Referral[]   @relation("Referred")
+  messages         Message[]
+}
+
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Device {
+  id         String   @id @default(cuid())
+  userId     String
+  deviceId   String
+  userAgent  String?
+  ipAddress  String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deviceId])
+}
+
+model Plan {
+  id                  String   @id @default(cuid())
+  code                String   @unique
+  name                String
+  description         String?
+  currency            String   @default("usd")
+  priceMonthly        Int?
+  priceYearly         Int?
+  isActive            Boolean  @default(true)
+  maxMessagesPerMonth Int?
+  maxTokensPerMonth   Int?
+  maxFiles            Int?
+  maxFileSizeBytes    BigInt?
+  allowedModelTypes   String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  subscriptions Subscription[]
+  coupons       Coupon[]
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  planId               String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               SubscriptionStatus @default(INCOMPLETE)
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAt             DateTime?
+  canceledAt           DateTime?
+  trialEndsAt          DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  invoices Invoice[]
+  payments Payment[]
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  type            String // PERCENT / FIXED
+  value           Int // percentage or fixed minor units
+  maxRedemptions  Int?
+  redeemedCount   Int       @default(0)
+  expiresAt       DateTime?
+  appliesToPlanId String?
+  createdAt       DateTime  @default(now())
+
+  plan Plan? @relation(fields: [appliesToPlanId], references: [id])
+}
+
+model Referral {
+  id             String         @id @default(cuid())
+  referrerUserId String
+  referredUserId String
+  code           String
+  rewardType     String // CREDIT / DISCOUNT
+  rewardValue    Int
+  status         ReferralStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
+
+  referrer User @relation("Referrer", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  referred User @relation("Referred", fields: [referredUserId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                    String   @id @default(cuid())
+  userId                String
+  subscriptionId        String?
+  amount                Int
+  currency              String   @default("usd")
+  stripePaymentIntentId String?
+  status                String
+  createdAt             DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  userId          String
+  subscriptionId  String
+  stripeInvoiceId String?
+  pdfUrl          String?
+  amountDue       Int
+  amountPaid      Int
+  issuedAt        DateTime
+  dueAt           DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model ChatThread {
+  id              String   @id @default(cuid())
+  userId          String
+  agentId         String?
+  title           String
+  modelKey        String
+  ragEnabled      Boolean  @default(false)
+  knowledgeBaseId String?
+  isArchived      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agent         Agent?         @relation(fields: [agentId], references: [id])
+  knowledgeBase KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id])
+
+  messages  Message[]
+  usageLogs UsageLog[]
+}
+
+model Message {
+  id           String      @id @default(cuid())
+  threadId     String
+  userId       String?
+  role         MessageRole
+  content      String      @db.Text
+  modelKey     String?
+  tokensInput  Int?        @default(0)
+  tokensOutput Int?        @default(0)
+  status       String      @default("SENT")
+  errorMessage String?     @db.Text
+  createdAt    DateTime    @default(now())
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User?      @relation(fields: [userId], references: [id])
+}
+
+model Agent {
+  id                 String          @id @default(cuid())
+  userId             String
+  name               String
+  slug               String          @unique
+  systemPrompt       String          @db.Text
+  defaultModelKey    String
+  defaultTemperature Float?          @default(0.7)
+  defaultTopP        Float?          @default(1.0)
+  knowledgeBaseId    String?
+  visibility         AgentVisibility @default(PRIVATE)
+  publicShareId      String?         @unique
+  isEnabled          Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id])
+
+  threads   ChatThread[]
+  usageLogs UsageLog[]
+}
+
+model KnowledgeBase {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  vectorStoreId String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+  agents    Agent[]
+  threads   ChatThread[]
+}
+
+model File {
+  id           String    @id @default(cuid())
+  userId       String
+  storageKey   String
+  originalName String
+  mimeType     String
+  sizeBytes    BigInt
+  checksum     String?
+  usage        FileUsage @default(OTHER)
+  createdAt    DateTime  @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+}
+
+model Document {
+  id              String             @id @default(cuid())
+  knowledgeBaseId String
+  fileId          String
+  sourceType      DocumentSourceType @default(UPLOAD)
+  status          DocumentStatus     @default(PENDING)
+  chunkCount      Int?               @default(0)
+  errorMessage    String?            @db.Text
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  file          File          @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  embeddings    Embedding[]
+}
+
+model Embedding {
+  id                String   @id @default(cuid())
+  documentId        String
+  vectorId          String // id in Vector DB
+  chunkIndex        Int
+  textSnippet       String   @db.Text
+  embeddingModelKey String
+  createdAt         DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([vectorId])
+}
+
+model UsageLog {
+  id           String   @id @default(cuid())
+  userId       String
+  threadId     String?
+  agentId      String?
+  modelKey     String
+  tokensInput  Int      @default(0)
+  tokensOutput Int      @default(0)
+  cost         Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread ChatThread? @relation(fields: [threadId], references: [id])
+  agent  Agent?      @relation(fields: [agentId], references: [id])
+}
+
+model Ticket {
+  id              String         @id @default(cuid())
+  userId          String
+  subject         String
+  description     String         @db.Text
+  status          TicketStatus   @default(OPEN)
+  priority        TicketPriority @default(MEDIUM)
+  assignedAdminId String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user  User  @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
+  admin User? @relation("AdminTickets", fields: [assignedAdminId], references: [id])
+}
+
+model AdminLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model ModelConfig {
+  id                String    @id @default(cuid())
+  key               String    @unique
+  displayName       String
+  type              ModelType
+  provider          String    @default("BYTEZ")
+  isEnabled         Boolean   @default(true)
+  allowedInFreePlan Boolean   @default(false)
+  defaultForTier    String?
+  pricingMultiplier Float     @default(1.0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model SystemSetting {
+  key   String @id
+  value Json
 }
