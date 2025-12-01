@@ -1,148 +1,142 @@
 // src/app/app/chat/page.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
+import AppShell from "@/components/layout/app-shell";
 
-type Role = "user" | "assistant";
-
-interface ChatMessage {
-  id: string;
-  role: Role;
+type ChatMessage = {
+  role: "user" | "assistant" | "system";
   content: string;
-  createdAt: string;
-}
-
-const initialMessages: ChatMessage[] = [
-  {
-    id: "u-1",
-    role: "user",
-    content:
-      "سلام هُدا. فعلاً می‌خوام روی طراحی پلتفرم SaaS هُدا و اتصالش به مدل‌های AI کار کنم.",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "a-1",
-    role: "assistant",
-    content:
-      "سلام، برای شروع بگو روی چه کاری می‌خوای تمرکز کنی: طراحی داشبورد، اتصال به API مدل‌ها، یا چیزی دیگه؟ این فقط یک گفت‌وگوی نمایشی است. در Phase 3، پیام‌ها از طریق Bytez Model API و RAG تولید خواهند شد.",
-    createdAt: new Date().toISOString(),
-  },
-];
+};
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "system",
+      content:
+        "سلام، من هُدا هستم. این نسخه نمایشی است و پاسخ‌ها فعلاً از یک API داخلی تستی می‌آیند.",
+    },
+  ]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // اسکرول به انتهای گفتگو بعد از هر پیام جدید
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isSending) return;
+    setError(null);
 
-    const content = input.trim();
+    const trimmed = input.trim();
+    if (!trimmed) return;
 
     const userMessage: ChatMessage = {
-      id: `u-${Date.now()}`,
       role: "user",
-      content,
-      createdAt: new Date().toISOString(),
+      content: trimmed,
     };
 
+    // پیام کاربر را بلافاصله نشان بده
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsSending(true);
 
-    // این بخش فعلاً Mock است، بعداً به Bytez Model API متصل می‌کنیم
-    const assistantMessage: ChatMessage = {
-      id: `a-${Date.now() + 1}`,
-      role: "assistant",
-      content:
-        "این یک پاسخ نمایشی است. در Phase 3 این بخش به مدل‌های هوش مصنوعی و RAG متصل می‌شود تا پاسخ واقعی روی داده‌های اختصاصی شما تولید کند.",
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: trimmed }),
+      });
 
-    setTimeout(() => {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "خطا در ارتباط با سرور");
+      }
+
+      const data: { reply?: string } = await res.json();
+
+      const assistantMessage: ChatMessage = {
+        role: "assistant",
+        content:
+          data.reply ??
+          "پاسخی از سرور دریافت نشد. در فاز بعدی این بخش تکمیل خواهد شد.",
+      };
+
       setMessages((prev) => [...prev, assistantMessage]);
+    } catch (err: any) {
+      console.error("chat error", err);
+      setError(err?.message || "خطای نامشخص در گفتگو");
+    } finally {
       setIsSending(false);
-    }, 600);
-  }
+    }
+  };
 
   return (
-    <div className="flex h-[100vh] flex-col bg-gradient-to-b from-hoda-bg/95 to-hoda-bg/100 text-hoda-text">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-hoda-border/60 bg-hoda-card/90 px-4 py-3 backdrop-blur-md">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold tracking-tight">
-            گفتگوی جدید با هُدا
+    <AppShell activePath="/app/chat">
+      <div className="flex flex-col h-full gap-4">
+        {/* Header */}
+        <div className="border-b border-hoda-border pb-2">
+          <h1 className="text-2xl font-bold text-hoda-text">
+            گفت‌وگو با هُدا
           </h1>
-          <p className="text-xs text-hoda-muted">
-            نسخه آزمایشی – پیام‌ها فعلاً به مدل واقعی متصل نیستند.
+          <p className="text-sm text-hoda-muted">
+            این نسخه‌ی اولیه (Mock) است. در فاز بعدی پاسخ‌ها از مدل‌های Bytez
+            و RAG تولید می‌شوند.
           </p>
         </div>
-        <Link
-          href="/app"
-          className="rounded-full border border-hoda-border/70 bg-hoda-surface px-3 py-1 text-xs text-hoda-muted transition hover:bg-hoda-accent/10 hover:text-hoda-accent"
-        >
-          بازگشت به داشبورد
-        </Link>
-      </header>
 
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto flex max-w-3xl flex-col gap-3">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex ${
-                m.role === "user" ? "justify-start" : "justify-end"
-              }`}
-            >
+        {/* Chat area */}
+        <div className="flex-1 min-h-0 border border-hoda-border rounded-2xl bg-hoda-card/60 backdrop-blur-sm overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.map((m, idx) => (
               <div
-                className={
-                  "max-w-[80%] rounded-3xl px-4 py-3 text-sm shadow-[0_0_25px_rgba(0,0,0,0.45)] " +
-                  (m.role === "user"
-                    ? "bg-hoda-surface/95 border border-hoda-border/60"
-                    : "bg-hoda-accent/15 border border-hoda-accent/50")
-                }
+                key={idx}
+                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+                  m.role === "user"
+                    ? "ml-auto bg-hoda-accent/20 border border-hoda-accent text-hoda-text"
+                    : m.role === "assistant"
+                    ? "mr-auto bg-hoda-surface border border-hoda-border text-hoda-text"
+                    : "mx-auto text-center text-xs text-hoda-muted"
+                }`}
               >
-                <p className="whitespace-pre-wrap leading-relaxed">
-                  {m.content}
-                </p>
+                {m.content}
               </div>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-      </main>
+            ))}
+            {isSending && (
+              <div className="mr-auto text-xs text-hoda-muted animate-pulse">
+                در حال فکر کردن…
+              </div>
+            )}
+          </div>
 
-      {/* Composer */}
-      <footer className="border-t border-hoda-border/60 bg-hoda-card/90 px-4 py-3 backdrop-blur-md">
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto flex max-w-3xl items-end gap-2"
-        >
-          <textarea
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="پیام خود را بنویسید و Enter را بزنید..."
-            className="flex-1 resize-none rounded-2xl border border-hoda-border/60 bg-hoda-surface/90 px-3 py-2 text-sm text-hoda-text shadow-inner outline-none focus:border-hoda-accent focus:ring-1 focus:ring-hoda-accent/60"
-          />
-          <button
-            type="submit"
-            disabled={isSending || !input.trim()}
-            className="h-10 min-w-[90px] rounded-2xl bg-hoda-accent px-4 text-xs font-medium text-white shadow-lg shadow-hoda-accent/40 disabled:cursor-not-allowed disabled:opacity-60"
+          {/* Error */}
+          {error && (
+            <div className="px-4 py-2 text-xs text-red-400 border-t border-hoda-border bg-black/40">
+              {error}
+            </div>
+          )}
+
+          {/* Input */}
+          <form
+            onSubmit={handleSubmit}
+            className="border-t border-hoda-border p-3 flex gap-2 items-center bg-hoda-bg/80 backdrop-blur"
           >
-            {isSending ? "در حال ارسال..." : "ارسال"}
-          </button>
-        </form>
-      </footer>
-    </div>
+            <input
+              className="flex-1 rounded-xl bg-hoda-surface border border-hoda-border px-3 py-2 text-sm text-hoda-text focus:outline-none focus:ring-2 focus:ring-hoda-accent/60"
+              placeholder="پیامت را برای هُدا بنویس…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={isSending}
+            />
+            <button
+              type="submit"
+              disabled={isSending || !input.trim()}
+              className="rounded-xl px-4 py-2 bg-hoda-accent text-black text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              ارسال
+            </button>
+          </form>
+        </div>
+      </div>
+    </AppShell>
   );
 }
