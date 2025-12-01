@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import AppShell from "@/components/layout/app-shell";
+import AppShell from "@/components/layout/app-shell"; // ← این الان درسته
 
 type ChatMessage = {
   role: "user" | "assistant" | "system";
@@ -71,7 +71,7 @@ export default function ChatPage() {
   };
 
   return (
-    <AppShell activePath="/app/chat">
+    <AppShell>
       <div className="flex flex-col h-full gap-4">
         {/* Header */}
         <div className="border-b border-hoda-border pb-2">
