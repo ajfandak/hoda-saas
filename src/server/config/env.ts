@@ -1,30 +1,36 @@
-// src/server/config/env.ts
 import { z } from "zod";
 
+// اسکیما برای متغیرهای محیطی
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
 
-  // برای Prisma و دیتابیس روی Render حتماً لازم است
-  DATABASE_URL: z.string().url(),
+  // برای Prisma و Postgres روی Render
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
-  // فعلاً برای اتصال به Bytez می‌گذاریم اختیاری باشد
+  // کلید بایتز – اختیاری برای الان
   BYTEZ_API_KEY: z.string().optional().default(""),
 
-  // چون هنوز Auth نداریم، این‌ها را اختیاری می‌کنیم
+  // برای NextAuth – فعلاً اختیاری که بیلد خراب نشود
   NEXTAUTH_URL: z.string().optional().default(""),
   NEXTAUTH_SECRET: z.string().optional().default(""),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const _env = envSchema.safeParse({
+  NODE_ENV: process.env.NODE_ENV,
+  DATABASE_URL: process.env.DATABASE_URL,
+  BYTEZ_API_KEY: process.env.BYTEZ_API_KEY,
+  NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+});
 
-if (!parsed.success) {
+if (!_env.success) {
   console.error(
     "❌ Invalid environment variables:",
-    parsed.error.flatten().fieldErrors,
+    _env.error.flatten().fieldErrors,
   );
   throw new Error("Invalid environment variables");
 }
 
-export const env = parsed.data;
+export const env = _env.data;
