@@ -1,79 +1,68 @@
+// src/server/integrations/bytez/bytez-provider.ts
+
 import { env } from "@/server/config/env";
 
-export interface ChatMessage {
+export type ModelIdentifier = string;
+
+export type BytezChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
+};
+
+export interface ChatCompletionChunk {
+  id: string;
+  model: string;
+  createdAt: string;
+  delta: string;
+  done: boolean;
 }
 
-export interface ChatCompletionResult {
-  output: string;
-  tokensInput: number;
-  tokensOutput: number;
-  rawProvider?: any;
-}
-
-export interface ModelIdentifier {
-  key: string;
-  provider: "BYTEZ";
-  task: "chat" | "vision" | "audio" | "embedding";
-}
-
-export interface ModelParams {
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-}
-
+/**
+ * Stub Bytez provider for Phase 0.
+ *
+ * - در حال حاضر فقط برای اینکه TypeScript و Build بدون نیاز به BYTEZ_API_KEY پاس شوند.
+ * - در Phase 3 این قسمت را با اتصال واقعی به Bytez Model API جایگزین می‌کنیم.
+ */
 export class BytezChatModelProvider {
-  constructor(private apiKey: string = env.BYTEZ_API_KEY) {}
+  private apiKey?: string;
+
+  constructor(apiKey?: string) {
+    // env.BYTEZ_API_KEY: string | undefined
+    this.apiKey = apiKey ?? env.BYTEZ_API_KEY;
+  }
 
   async *chatCompletion(
     model: ModelIdentifier,
-    messages: ChatMessage[],
-    params: ModelParams = {},
-    options?: { stream?: boolean }
-  ): AsyncGenerator<ChatCompletionResult> {
-    const response = await fetch(`https://api.bytez.com/v1/models/${encodeURIComponent(model.key)}/run`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        messages,
-        params,
-        stream: options?.stream ?? true,
-      }),
-    });
+    messages: BytezChatMessage[],
+  ): AsyncGenerator<ChatCompletionChunk, void, unknown> {
+    const effectiveKey = this.apiKey ?? env.BYTEZ_API_KEY;
 
-    if (!options?.stream) {
-      const json = await response.json();
+    if (!effectiveKey) {
+      // فعلاً اگر کلید ست نشده باشد، فقط یک پیام راهنما برمی‌گردانیم و تمام؛
+      // این اجازه می‌دهد Build/Deploy بدون تنظیم BYTEZ_API_KEY هم انجام شود.
       yield {
-        output: json.output,
-        tokensInput: json.tokens_input ?? 0,
-        tokensOutput: json.tokens_output ?? 0,
-        rawProvider: json,
+        id: "stub",
+        model,
+        createdAt: new Date().toISOString(),
+        delta:
+          "Bytez API key (BYTEZ_API_KEY) is not configured yet. This is a stub response from BytezChatModelProvider.",
+        done: true,
       };
       return;
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("Streaming not supported");
+    // TODO (Phase 3):
+    // در اینجا اتصال واقعی به Bytez Model API را پیاده‌سازی می‌کنیم (Chat / Vision / Audio / Embeddings).
+    const combinedUserContent = messages
+      .map((m) => `${m.role}: ${m.content}`)
+      .join("\n");
 
-    const decoder = new TextDecoder();
-    let done = false;
-    while (!done) {
-      const { value, done: doneChunk } = await reader.read();
-      done = doneChunk;
-      if (!value) continue;
-      const chunkText = decoder.decode(value);
-
-      // TODO: parse stream format based on real Bytez protocol
-      yield {
-        output: chunkText,
-        tokensInput: 0,
-        tokensOutput: 0,
-      };
-    }
+    yield {
+      id: "stub",
+      model,
+      createdAt: new Date().toISOString(),
+      delta: `Stub Bytez response for model "${model}" with ${messages.length} messages.\n\n${combinedUserContent}`,
+      done: true,
+    };
   }
 }

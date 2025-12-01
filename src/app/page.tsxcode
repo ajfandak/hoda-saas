@@ -1,0 +1,101 @@
+// src/app/page.tsx
+import Link from "next/link";
+
+export default function HomePage() {
+  const year = new Date().getFullYear();
+
+  return (
+    <main className="min-h-screen flex flex-col">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-16">
+        <div className="max-w-6xl w-full grid gap-12 md:grid-cols-2 items-center">
+          {/* Right column (RTL) – text & CTA */}
+          <section className="space-y-6 text-right">
+            <span className="inline-flex items-center gap-2 rounded-full border border-hoda-border/60 bg-hoda-accent-soft px-4 py-1 text-xs text-hoda-text-soft">
+              <span className="h-1.5 w-1.5 rounded-full bg-hoda-accent" />
+              هوش مصنوعی همه‌کاره برای تیم‌های کوچک و استارتاپ‌ها
+            </span>
+
+            <h1 className="text-3xl md:text-5xl font-bold leading-tight">
+              هُدا؛
+              <span className="text-hoda-accent"> دستیار هوش مصنوعی </span>
+              شما برای چت، Agent و RAG
+            </h1>
+
+            <p className="text-hoda-text-soft leading-relaxed text-sm md:text-base">
+              روی یک پلتفرم، هم‌زمان چت مثل GPT، استودیو Agent، پایگاه دانش
+              RAG و سیستم اشتراک SaaS داشته باشید. همه‌چیز آماده‌ی استفاده،
+              با پشتیبانی کامل از زبان فارسی و محیط RTL.
+            </p>
+
+            <div className="flex flex-wrap gap-3 justify-end">
+              <Link
+                href="/auth/register"
+                className="inline-flex items-center justify-center rounded-2xl bg-hoda-accent px-6 py-2.5 text-sm font-semibold text-slate-900 shadow-glass hover:opacity-90 transition"
+              >
+                شروع رایگان
+              </Link>
+              <Link
+                href="/auth/login"
+                className="inline-flex items-center justify-center rounded-2xl border border-hoda-border bg-slate-900/40 px-6 py-2.5 text-sm font-medium text-hoda-text hover:bg-slate-900/70 transition"
+              >
+                ورود به حساب
+              </Link>
+            </div>
+
+            <ul className="space-y-2 text-xs md:text-sm text-hoda-text-soft">
+              <li>• چت پیشرفته شبیه تلگرام جدید با تم گلس و دارک مود</li>
+              <li>• ساخت چندین Agent با شخصیت و پایگاه دانش اختصاصی</li>
+              <li>• سیستم اشتراک ماهانه/سالانه، پلن رایگان و داشبورد ادمین</li>
+            </ul>
+          </section>
+
+          {/* Left column – mock chat card */}
+          <section className="glass-card p-5 md:p-7">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="h-9 w-9 rounded-2xl bg-hoda-accent-soft flex items-center justify-center text-sm">
+                  ه
+                </div>
+                <div>
+                  <div className="text-sm font-semibold">HODA Assistant</div>
+                  <div className="text-[11px] text-hoda-text-soft">
+                    آماده‌ی پاسخ‌گویی به شماست
+                  </div>
+                </div>
+              </div>
+              <span className="h-2 w-2 rounded-full bg-green-400" />
+            </div>
+
+            <div className="space-y-3 text-[12px] leading-relaxed">
+              <div className="flex justify-end">
+                <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-hoda-accent text-slate-900 px-3 py-2">
+                  یک Agent بساز که فقط روی اسناد دفتر ما جواب بده.
+                </div>
+              </div>
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-2xl rounded-bl-sm bg-slate-900/80 border border-hoda-border px-3 py-2 text-hoda-text-soft">
+                  حتماً. فایل‌هایت را در RAG Center آپلود کن، یک Knowledge Base
+                  بساز و آن را به Agent وصل کن. از آن بعد، پاسخ‌ها فقط بر اساس
+                  داده‌های خودت خواهد بود.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2 border-t border-hoda-border/40 pt-3">
+              <div className="flex-1 rounded-2xl bg-slate-900/70 px-3 py-2 text-[11px] text-hoda-text-muted">
+                هر سؤالی درباره هُدا یا پیاده‌سازی Agentها داشتی اینجا بپرس…
+              </div>
+              <button className="h-8 w-8 rounded-2xl bg-hoda-accent flex items-center justify-center text-slate-900 text-xs font-semibold">
+                ➤
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <footer className="border-t border-hoda-border/40 py-3 text-[11px] text-center text-hoda-text-muted">
+        © {year} HODA. تمامی حقوق محفوظ است.
+      </footer>
+    </main>
+  );
+}
